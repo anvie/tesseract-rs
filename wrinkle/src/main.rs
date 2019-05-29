@@ -14,7 +14,7 @@ use whatlang::Lang;
 
 use std::{
     cmp, env,
-    fs::{self, File},
+    fs::File,
     io::{BufRead, BufReader, Write},
     path::Path,
 };
@@ -51,7 +51,7 @@ pub fn levenshtein(a: &str, b: &str) -> usize {
     if a == b {
         return result;
     }
-    
+
     let length_a = a.chars().count();
     let length_b = b.chars().count();
 
@@ -130,7 +130,10 @@ pub fn scan_dir<P: AsRef<Path>>(sample: P, target_dir: P) {
 
     let sample_bin: Vec<u8> = bs.bin.iter().take(max_size).map(|a| *a).collect();
 
-    println!("{}", format!("scanning {}", target_dir.as_ref().display()).color("grey"));
+    println!(
+        "{}",
+        format!("scanning {}", target_dir.as_ref().display()).color("grey")
+    );
 
     for entry in WalkDir::new(target_dir)
         .into_iter()
@@ -148,9 +151,16 @@ pub fn scan_dir<P: AsRef<Path>>(sample: P, target_dir: P) {
             continue;
         }
 
-        print!("{}", format!("SCAN: {}                                               ", entry.path().display()).color("grey"));
+        print!(
+            "{}",
+            format!(
+                "SCAN: {}                                               ",
+                entry.path().display()
+            )
+            .color("grey")
+        );
         print!("\r");
-        std::io::stdout().flush();
+        let _ = std::io::stdout().flush();
 
         let text = extract_text(entry.path());
         let bs = text_to_bin(&text);
@@ -159,7 +169,7 @@ pub fn scan_dir<P: AsRef<Path>>(sample: P, target_dir: P) {
         }
         let max_size = cmp::min(bs.bin.len(), sample_size);
 
-        let mut soffset = 0;
+        // let mut soffset = 0;
         let mut found = false;
 
         for i in 0..bs.bin.len() {
@@ -167,28 +177,28 @@ pub fn scan_dir<P: AsRef<Path>>(sample: P, target_dir: P) {
             if i + sample_size > bs.bin.len() {
                 break;
             }
-            let lv_distance = levenshtein(std::str::from_utf8(&bs.bin[i..i + max_size]).unwrap(), std::str::from_utf8(&sample_bin[0..max_size]).unwrap());
+            let lv_distance = levenshtein(
+                std::str::from_utf8(&bs.bin[i..i + max_size]).unwrap(),
+                std::str::from_utf8(&sample_bin[0..max_size]).unwrap(),
+            );
             // dbg!(lv_distance);
 
             // if &bs.bin[i..i + 32] == &sample_bin[0..32] {
             if lv_distance < 5 {
                 dbg!(lv_distance);
-                println!("{:?} == {:?}", &bs.bin[i..i + max_size], &sample_bin[0..max_size]);
-                soffset = i;
+                println!(
+                    "{:?} == {:?}",
+                    &bs.bin[i..i + max_size],
+                    &sample_bin[0..max_size]
+                );
+                // soffset = i;
                 found = true;
                 break;
             }
         }
 
         if found {
-            println!(
-                "{}",
-                format!(
-                    "{}",
-                    entry.path().display()
-                )
-                .yellow()
-            );
+            println!("{}", format!("{}", entry.path().display()).yellow());
         }
     }
 }
@@ -204,7 +214,9 @@ lazy_static! {
          )\\b"
     )
     .unwrap();
-    static ref NORM_WORD: Regex = Regex::new("[\\('\",.]?([a-zA-Z0-9]*)(\\.+)?(!+)?[”\\)',.]?").unwrap();
+    static ref NORM_WORD: Regex =
+        Regex::new("[\\('\",.:]?([a-zA-Z0-9]*)(\\.+)?(!+)?[”\\)',.]?").unwrap();
+    static ref NORM_WORD2: Regex = Regex::new("\\|").unwrap();
     static ref LONG_SPACE: Regex = Regex::new("\\s\\s+").unwrap();
     static ref WORDLIST: Vec<Vec<u8>> = {
         let file = File::open("indonesian.lst").expect("cannot read indonesian.lst file");
@@ -230,10 +242,21 @@ fn extract_text<P: AsRef<Path>>(path: P) -> String {
 }
 
 fn cleanup_text(text: &str) -> String {
-    let rv = NOISE_WORDS.replace_all(text, "").to_string();
+    let rv = NOISE_WORDS.replace_all(text, "");
+    let rv = NORM_WORD2.replace_all(&rv, " ").to_string();
     let text_lines = rv.split("\n");
     let mut rvs: Vec<String> = vec![];
     for line in text_lines {
+        let s: Vec<&str> = line.split(" ").collect();
+        let mut ws = vec![];
+        for w in s {
+            let w = NORM_WORD.replace_all(w, "$1");
+            // println!("w: {}", w);
+            ws.push(w.to_string());
+        }
+
+        let line = ws.join(" ");
+
         let info = whatlang::detect(&line);
 
         if info.is_none() {
@@ -244,18 +267,11 @@ fn cleanup_text(text: &str) -> String {
 
         // dbg!((&lang, &line));
 
-        if !(lang == Lang::Ind || lang == Lang::Ilo || lang == Lang::Pol) {
+        if !(lang == Lang::Ind || lang == Lang::Ilo || lang == Lang::Pol || lang == Lang::Jav) {
             continue;
         }
 
-        let s: Vec<&str> = line.split(" ").collect();
-        let mut ws = vec![];
-        for w in s {
-            let w = NORM_WORD.replace_all(w, "$1");
-            // println!("w: {}", w);
-            ws.push(w.to_string());
-        }
-        rvs.push(ws.join(" "));
+        rvs.push(line);
     }
     LONG_SPACE.replace_all(&rvs.join("\n"), " ").to_string()
 }
@@ -319,7 +335,8 @@ fn text_to_bin(text: &str) -> TextBinSeq {
                         ws.push(2);
                     } else if c >= 65 && c <= 90 {
                         ws.push(3);
-                    } else if c >= 48 && c <= 57 { // numeric
+                    } else if c >= 48 && c <= 57 {
+                        // numeric
                         ws.push(4);
                     } else {
                         ws.push(0);
@@ -341,7 +358,7 @@ fn text_to_bin(text: &str) -> TextBinSeq {
             bin.append(&mut ws);
         }
     }
-    
+
     TextBinSeq { texts, bin }
 }
 
