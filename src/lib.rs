@@ -14,7 +14,7 @@ pub struct Tesseract {
 
 impl Drop for Tesseract {
 	fn drop(&mut self) {
-		println!("Ave Imperator! Nos morituri te salutamus.");
+		// println!("Ave Imperator! Nos morituri te salutamus.");
 		unsafe { TessBaseAPIDelete(self.raw) }
 	}
 }

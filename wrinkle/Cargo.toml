@@ -3,6 +3,10 @@ name = "wrinkle"
 version = "0.1.0"
 authors = ["Kevin Kwok <antimatter15@gmail.com>"]
 
-[dependencies.tesseract]
-tesseract = "0.1"
-path = "../"
+[dependencies]
+regex = "1"
+lazy_static = "1.3"
+tesseract = {version = "0.1", path = "../"}
+walkdir = "2"
+whatlang = "0.7.0"
+colored = "1.8"
