@@ -44,7 +44,7 @@ pub fn is_image_file<P: AsRef<Path>>(path: P) -> bool {
  *
  * Copyright (c) 2016 Titus Wormer <tituswormer@gmail.com>
  */
-pub fn levenshtein(a: &str, b: &str) -> usize {
+pub fn levenshtein(a: &[u8], b: &[u8]) -> usize {
     let mut result = 0;
 
     /* Shortcut optimizations / degenerate cases. */
@@ -52,8 +52,8 @@ pub fn levenshtein(a: &str, b: &str) -> usize {
         return result;
     }
 
-    let length_a = a.chars().count();
-    let length_b = b.chars().count();
+    let length_a = a.len();
+    let length_b = b.len();
 
     if length_a == 0 {
         return length_b;
@@ -78,11 +78,11 @@ pub fn levenshtein(a: &str, b: &str) -> usize {
     }
 
     /* Loop. */
-    for (index_b, code_b) in b.chars().enumerate() {
+    for (index_b, code_b) in b.iter().enumerate() {
         result = index_b;
         distance_a = index_b;
 
-        for (index_a, code_a) in a.chars().enumerate() {
+        for (index_a, code_a) in a.iter().enumerate() {
             distance_b = if code_a == code_b {
                 distance_a
             } else {
@@ -177,11 +177,13 @@ pub fn scan_dir<P: AsRef<Path>>(sample: P, target_dir: P) {
             if i + sample_size > bs.bin.len() {
                 break;
             }
-            let lv_distance = levenshtein(
-                std::str::from_utf8(&bs.bin[i..i + max_size]).unwrap(),
-                std::str::from_utf8(&sample_bin[0..max_size]).unwrap(),
-            );
+            let lv_distance = levenshtein(&bs.bin[i..i + max_size], &sample_bin[0..max_size]);
             // dbg!(lv_distance);
+
+            // For debugging purposes
+            // if entry.path().file_name() == Some(std::ffi::OsStr::new("berita-nusron-hoax-variasi7-rotated-10.png")) {
+            //     dbg!(lv_distance);
+            // }
 
             // if &bs.bin[i..i + 32] == &sample_bin[0..32] {
             if lv_distance < 5 {
